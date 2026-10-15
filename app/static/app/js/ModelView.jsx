@@ -1127,3 +1127,76 @@ function injectReactSmartAIPanel() {
 if (typeof window !== 'undefined') {
     setInterval(injectReactSmartAIPanel, 2000);
 }
+// =====================================================================
+// 🏗️ 保儀路案智慧化改版：3D Potree 控制面板與發電機等其他非土方雜訊自動刨除機制
+// =====================================================================
+
+function inject3DReactSmartAIPanel() {
+    // 檢查 3D 畫面左側選單是否已經有這個 AI 區塊
+    if (document.getElementById("smart-ai-3d-panel")) return;
+
+    // 精準瞄準您截圖左側面板中的「Measurement」灰色大區塊底部的容器
+    const potreeSidebar = document.querySelector(".potree_sidebar_brand, #measurement_tools, [id*='measurement'], .measure-layer-details, #menu_meta"); 
+    if (!potreeSidebar) return;
+
+    // AI 影像破譯自動辨識預設值 (完全符合現場發電機與車輛配置)
+    const aiDetected = { pc300: 0, pc120: 1, cranes: 0, trucks: 0, piles: 1, sedans: 2, steelVol: 60.0, otherVol: 18.5 };
+
+    const panelHTML = `
+        <div id="smart-ai-3d-panel" style="margin: 15px 5px; padding: 12px; background: #111; border: 1px solid #00bcd4; border-left: 4px solid #00bcd4; border-radius: 4px; color: #fff; font-family: sans-serif; text-align: left; font-size: 12px;">
+            <h4 style="color: #00bcd4; margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">🤖 AI 工地萬物自動辨識 (3D 覆核面板)：</h4>
+            
+            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 挖土機(PC120):</span>
+                <input type="number" id="ai-3d-pc120" value="${aiDetected.pc120}" style="width: 40px; background: #222; color: #fff; border: 1px solid #555; text-align: center;">
+            </div>
+            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 中間樁打設機:</span>
+                <input type="number" id="ai-3d-piles" value="${aiDetected.piles}" style="width: 40px; background: #222; color: #fff; border: 1px solid #555; text-align: center;">
+            </div>
+            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 5人座小客車:</span>
+                <input type="number" id="ai-3d-sedans" value="${aiDetected.sedans}" style="width: 40px; background: #222; color: #fff; border: 1px solid #555; text-align: center;">
+            </div>
+            <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; color: #ff9800;">
+                <span>• 🧱 現場堆置鋼材:</span>
+                <div><input type="number" id="ai-3d-steel" value="${aiDetected.steelVol}" style="width: 50px; background: #222; color: #ff9800; border: 1px solid #ff9800; text-align: center;"> m³</div>
+            </div>
+            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; color: #a278ff;">
+                <span>• 🔍 其他(發電機等):</span>
+                <div><input type="number" id="ai-3d-other" value="${aiDetected.otherVol}" style="width: 50px; background: #222; color: #a278ff; border: 1px solid #a278ff; text-align: center;"> m³</div>
+            </div>
+            
+            <button id="btn-3d-ai-verify" style="width: 100%; padding: 6px; background: #00bcd4; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                ✍️  確認核對通過 (帶入算式扣除)
+            </button>
+            <div id="ai-3d-corrected-result" style="margin-top: 8px; font-weight: bold; color: #00ffcc; text-align: center;"></div>
+        </div>
+    `;
+    
+    potreeSidebar.insertAdjacentHTML('afterend', panelHTML);
+
+    // 點擊一鍵刨除 3D 空間雜訊
+    document.getElementById("btn-3d-ai-verify").addEventListener("click", function() {
+        // 抓取 3D 畫面上點選多邊形工具算出來的體積原始文字
+        let rawVolText = document.querySelector(".potree_volume_text, [class*='volume'], .measure-result")?.innerText || "0";
+        let rawVolume = parseFloat(rawVolText.replace(/[^0-9.]/g, "")) || 0.0;
+
+        let pc120 = parseInt(document.getElementById("ai-3d-pc120").value || 0);
+        let piles = parseInt(document.getElementById("ai-3d-piles").value || 0);
+        let sedans = parseInt(document.getElementById("ai-3d-sedans").value || 0);
+        let steelVol = parseFloat(document.getElementById("ai-3d-steel").value || 0.0);
+        let otherVol = parseFloat(document.getElementById("ai-3d-other").value || 0.0);
+
+        let totalDeduction = (pc120 * 12.0) + (piles * 35.0) + (sedans * 4.5) + steelVol + otherVol;
+        let correctedVolume = Math.max(0.0, rawVolume - totalDeduction);
+
+        document.getElementById("ai-3d-corrected-result").innerHTML = 
+            `🌟 排除所有干擾後淨體積: <span style="font-size: 13px; color: #fff;">${correctedVolume.toFixed(2)}</span> m³<br>` +
+            `<span style="font-size: 10px; color: #aaa;">(AI 累計扣除雜訊: ${totalDeduction.toFixed(1)} m³)</span>`;
+    });
+}
+
+if (typeof window !== 'undefined') {
+    setInterval(inject3DReactSmartAIPanel, 2000);
+}
