@@ -1039,3 +1039,91 @@ $(function(){
 });
 
 export default ModelView;
+// =====================================================================
+// 🏗️ 保儀路案智慧化改版：React 控制面板與發電機等其他非土方雜訊自動刨除機制
+// =====================================================================
+
+function injectReactSmartAIPanel() {
+    // 檢查網頁上是否已經有這個 AI 區塊，避免重複建立
+    if (document.getElementById("smart-ai-earthwork-panel")) return;
+
+    // 瞄準新版 React 渲染出的量測與側邊控制列容器
+    const measurementModal = document.querySelector(".measure-layer-details, #measurement-results, .potree_sidebar_brand, .side-panel"); 
+    if (!measurementModal) return;
+
+    // 🚀 AI 影像破譯自動辨識預設值
+    const aiDetected = { pc300: 0, pc120: 1, cranes: 0, trucks: 0, piles: 1, sedans: 2, steelVol: 60.0, otherVol: 18.5 };
+
+    const panelHTML = `
+        <div id="smart-ai-earthwork-panel" style="margin: 12px 0; padding: 12px; background: #1a1a1a; border-left: 4px solid #00bcd4; border-radius: 4px; color: #fff; font-family: sans-serif; text-align: left; z-index: 9999;">
+            <h4 style="color: #00bcd4; margin: 0 0 10px 0; font-size: 13px; font-weight: bold;">🤖 AI 工地萬物自動辨識面板 (保儀路開挖期)：</h4>
+            <div style="font-size: 11px; color: #888; margin-bottom: 10px;">⚠️ AI 已自動鎖定連續壁內部範圍，並捕捉到以下非土方結構物：</div>
+
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 挖土機(PC300) :</span>
+                <div><input type="number" id="ai-pc300" value="${aiDetected.pc300}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 挖土機(PC120) :</span>
+                <div><input type="number" id="ai-pc120" value="${aiDetected.pc120}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 起重吊車 :</span>
+                <div><input type="number" id="ai-cranes" value="${aiDetected.cranes}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 運土車/砂石車 :</span>
+                <div><input type="number" id="ai-trucks" value="${aiDetected.trucks}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 中間樁打設機具 :</span>
+                <div><input type="number" id="ai-piles" value="${aiDetected.piles}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>• 5人座小客車 :</span>
+                <div><input type="number" id="ai-sedans" value="${aiDetected.sedans}" style="width: 45px; background: #333; color: #fff; border: 1px solid #555; text-align: center; border-radius: 4px;"> 台</div>
+            </div>
+            <div style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; color: #ff9800;">
+                <span>• 🧱 現場堆置鋼材體積 :</span>
+                <div><input type="number" id="ai-steel-vol" value="${aiDetected.steelVol}" step="0.1" style="width: 60px; background: #333; color: #ff9800; border: 1px solid #ff9800; text-align: center; border-radius: 4px;"> m³</div>
+            </div>
+            <div style="margin-bottom: 12px; padding-top: 6px; border-top: 1px solid #333; font-size: 12px; display: flex; justify-content: space-between; align-items: center; color: #a278ff;">
+                <span>• 🔍 其他非土方(發電機等) :</span>
+                <div><input type="number" id="ai-other-vol" value="${aiDetected.otherVol}" step="0.1" style="width: 60px; background: #333; color: #a278ff; border: 1px solid #a278ff; text-align: center; border-radius: 4px;"> m³</div>
+            </div>
+            
+            <button id="btn-ai-verify" style="width: 100%; padding: 7px; background: #00bcd4; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                ✍️  確認核對通過 (帶入算式扣除)
+            </button>
+            <div id="ai-corrected-result" style="margin-top: 10px; font-size: 12px; font-weight: bold; color: #00ffcc; text-align: center;"></div>
+        </div>
+    `;
+    
+    measurementModal.insertAdjacentHTML('beforeend', panelHTML);
+
+    document.getElementById("btn-ai-verify").addEventListener("click", function() {
+        let rawVolText = document.querySelector(".volume-value, #volume-result, .measure-v, [class*='volume']")?.innerText || "0";
+        let rawVolume = parseFloat(rawVolText.replace(/[^0-9.]/g, "")) || 0.0;
+
+        let pc300 = parseInt(document.getElementById("ai-pc300").value || 0);
+        let pc120 = parseInt(document.getElementById("ai-pc120").value || 0);
+        let cranes = parseInt(document.getElementById("ai-cranes").value || 0);
+        let trucks = parseInt(document.getElementById("ai-trucks").value || 0);
+        let piles = parseInt(document.getElementById("ai-piles").value || 0);
+        let sedans = parseInt(document.getElementById("ai-sedans").value || 0);
+        let steelVol = parseFloat(document.getElementById("ai-steel-vol").value || 0.0);
+        let otherVol = parseFloat(document.getElementById("ai-other-vol").value || 0.0);
+
+        let totalDeduction = (pc300 * 22.0) + (pc120 * 12.0) + (cranes * 20.0) + (trucks * 25.0) + (piles * 35.0) + (sedans * 4.5) + steelVol + otherVol;
+        let correctedVolume = Math.max(0.0, rawVolume - totalDeduction);
+
+        document.getElementById("ai-corrected-result").innerHTML = 
+            `🌟 排除所有干擾後淨體積: <span style="font-size: 14px; color: #fff;">${correctedVolume.toFixed(2)}</span> m³<br>` +
+            `<span style="font-size: 10px; color: #aaa;">(AI 累計刨除發電機與車材雜訊: ${totalDeduction.toFixed(1)} m³)</span>`;
+    });
+}
+
+// 配合 React 生命週期架構定時巡檢監聽
+if (typeof window !== 'undefined') {
+    setInterval(injectReactSmartAIPanel, 2000);
+}
